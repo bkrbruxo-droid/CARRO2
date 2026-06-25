@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Diário de Bordo — Controle do Carro</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root{
     --asfalto: #15171a;
@@ -83,6 +85,26 @@
     animation: pulse 2.4s ease-in-out infinite;
   }
   @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+
+  .sync-status{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--texto-fraco);
+    margin-top: 8px;
+  }
+  .sync-dot{
+    width:7px; height:7px;
+    border-radius:50%;
+    background: var(--amarelo-farol);
+    display:inline-block;
+  }
+  .sync-status.online .sync-dot{ background: var(--verde-oleo); }
+  .sync-status.offline .sync-dot{ background: var(--vermelho-alerta); }
+  .sync-status.online #syncTexto{ color: var(--verde-oleo); }
+  .sync-status.offline #syncTexto{ color: var(--vermelho-alerta); }
 
   h1{
     font-family: var(--display);
@@ -456,6 +478,10 @@
     <div>
       <div class="placa">Diário de bordo</div>
       <h1>Controle do <span>Carro</span></h1>
+      <div class="sync-status" id="syncStatus">
+        <span class="sync-dot"></span>
+        <span id="syncTexto">Conectando...</span>
+      </div>
     </div>
     <div class="car-id">
       <label>Identificação do veículo</label>
@@ -559,41 +585,60 @@
 </main>
 
 <footer>
-  Dados salvos automaticamente neste navegador · nenhum dado sai do seu dispositivo
+  Dados sincronizados em nuvem · acesse de qualquer dispositivo
 </footer>
 
 <div class="toast" id="toast"></div>
 
 <script>
 (function(){
-  // ===== Estado e persistência =====
-  var STORAGE_KEY = 'diario_bordo_dados_v1';
+  // ===== Firebase =====
+  var firebaseConfig = {
+    apiKey: "AIzaSyAvs4eEXknZ0OiSaYwEBA_k_pWjuFUpudQ",
+    authDomain: "diario-de-bordo-6ecb2.firebaseapp.com",
+    databaseURL: "https://diario-de-bordo-6ecb2-default-rtdb.firebaseio.com",
+    projectId: "diario-de-bordo-6ecb2",
+    storageBucket: "diario-de-bordo-6ecb2.firebasestorage.app",
+    messagingSenderId: "200884480316",
+    appId: "1:200884480316:web:dc6d8ea4a947b696591639"
+  };
 
-  function carregarDados(){
-    try{
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) return { nomeCarro:'', kmAtual:'', registros:[] };
-      var parsed = JSON.parse(raw);
-      if(!parsed.registros) parsed.registros = [];
-      return parsed;
-    }catch(e){
-      return { nomeCarro:'', kmAtual:'', registros:[] };
-    }
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
+  var refDados = db.ref('diario_de_bordo');
+
+  var elSyncStatus = document.getElementById('syncStatus');
+  var elSyncTexto = document.getElementById('syncTexto');
+
+  function setStatus(estado, texto){
+    elSyncStatus.className = 'sync-status ' + estado;
+    elSyncTexto.textContent = texto;
   }
+
+  // Monitorar conexão real com o Firebase
+  db.ref('.info/connected').on('value', function(snap){
+    if(snap.val() === true){
+      setStatus('online', 'Sincronizado');
+    } else {
+      setStatus('offline', 'Sem conexão');
+    }
+  });
+
+  // ===== Estado =====
+  var dados = { nomeCarro:'', kmAtual:'', registros:[] };
+  var tipoAtual = 'gasto';
+  var filtroAtual = 'todos';
+  var carregouPrimeiraVez = false;
 
   function salvarDados(){
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
+      refDados.set(dados);
       return true;
     }catch(e){
-      mostrarToast('Não foi possível salvar — armazenamento indisponível');
+      mostrarToast('Não foi possível salvar — verifique sua conexão');
       return false;
     }
   }
-
-  var dados = carregarDados();
-  var tipoAtual = 'gasto';
-  var filtroAtual = 'todos';
 
   // ===== Elementos =====
   var elNomeCarro = document.getElementById('nomeCarro');
@@ -612,9 +657,6 @@
   var elCampoLitros = document.getElementById('campoLitros');
   var elCampoLitrosWrap = document.getElementById('campoLitrosWrap');
 
-  // ===== Init valores salvos =====
-  elNomeCarro.value = dados.nomeCarro || '';
-  elKmAtual.value = dados.kmAtual || '';
   elCampoData.value = new Date().toISOString().slice(0,10);
 
   elNomeCarro.addEventListener('input', function(){
@@ -625,6 +667,33 @@
     dados.kmAtual = elKmAtual.value;
     salvarDados();
     renderDashboard();
+  });
+
+  // ===== Escutar mudanças em tempo real (de qualquer dispositivo) =====
+  refDados.on('value', function(snapshot){
+    var valor = snapshot.val();
+    if(valor){
+      dados = valor;
+      if(!dados.registros) dados.registros = [];
+    } else {
+      dados = { nomeCarro:'', kmAtual:'', registros:[] };
+    }
+
+    // Não sobrescrever o que o usuário está digitando agora, só na primeira carga
+    // ou se o campo não estiver em foco
+    if(document.activeElement !== elNomeCarro){
+      elNomeCarro.value = dados.nomeCarro || '';
+    }
+    if(document.activeElement !== elKmAtual){
+      elKmAtual.value = dados.kmAtual || '';
+    }
+
+    carregouPrimeiraVez = true;
+    renderLista();
+    renderDashboard();
+  }, function(erro){
+    setStatus('offline', 'Erro de conexão');
+    mostrarToast('Erro ao conectar com o banco de dados');
   });
 
   // ===== Toggle de tipo =====
@@ -855,8 +924,6 @@
 
   // ===== Init =====
   atualizarFormularioPorTipo();
-  renderLista();
-  renderDashboard();
 })();
 </script>
 
