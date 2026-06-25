@@ -322,6 +322,44 @@
   .tipo-btn:hover{ border-color: var(--texto-fraco); }
   .tipo-btn.ativo:hover{ border-color: var(--laranja); }
 
+  .pecas-recorrentes{
+    margin-bottom: 16px;
+    padding: 12px;
+    background: var(--asfalto);
+    border: 1px solid var(--linha);
+    border-radius: 6px;
+  }
+  .pecas-recorrentes-label{
+    display:block;
+    font-size: 10px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color: var(--texto-fraco);
+    margin-bottom: 10px;
+  }
+  .chips-pecas{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+  }
+  .chip-peca{
+    background: var(--metal);
+    border: 1px solid var(--linha);
+    color: var(--texto);
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  .chip-peca:hover{ border-color: var(--amarelo-farol); }
+  .chip-peca.ativo{
+    background: rgba(240,180,41,.16);
+    border-color: var(--amarelo-farol);
+    color: var(--amarelo-farol);
+    font-weight:600;
+  }
+
   .btn-add{
     background: var(--laranja);
     color: #1a1a1a;
@@ -415,6 +453,39 @@
   .vazio .icone{ font-size:28px; display:block; margin-bottom:10px; opacity:.5;}
 
   /* ===== FILTROS ===== */
+  .busca-wrap{
+    position:relative;
+    margin-bottom: 14px;
+  }
+  .campo-busca{
+    width:100%;
+    background: var(--painel);
+    border: 1px solid var(--linha);
+    color: var(--texto);
+    font-family: var(--corpo);
+    font-size: 14px;
+    padding: 11px 38px 11px 14px;
+    border-radius: 6px;
+  }
+  .campo-busca:focus{
+    outline:none;
+    border-color: var(--laranja);
+  }
+  .campo-busca::placeholder{ color: var(--texto-fraco); }
+  .btn-limpar-busca{
+    position:absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background:transparent;
+    border:none;
+    color: var(--texto-fraco);
+    font-size: 14px;
+    cursor:pointer;
+    padding: 4px 6px;
+  }
+  .btn-limpar-busca:hover{ color: var(--vermelho-alerta); }
+
   .filtros{
     display:flex;
     gap:8px;
@@ -529,6 +600,17 @@
       <button class="tipo-btn" data-tipo="abastecimento" id="btnTipoAbastecimento">⛽ Abastecimento</button>
     </div>
 
+    <div class="pecas-recorrentes" id="pecasRecorrentesWrap" style="display:none;">
+      <label class="pecas-recorrentes-label">Peças recorrentes — clique para marcar</label>
+      <div class="chips-pecas" id="chipsPecas">
+        <button type="button" class="chip-peca" data-peca="Jogo de vela">Jogo de vela</button>
+        <button type="button" class="chip-peca" data-peca="Cabo de vela">Cabo de vela</button>
+        <button type="button" class="chip-peca" data-peca="Correia dentada">Correia dentada</button>
+        <button type="button" class="chip-peca" data-peca="Esticador da correia dentada">Esticador da correia dentada</button>
+        <button type="button" class="chip-peca" data-peca="Pastilha de freio">Pastilha de freio</button>
+      </div>
+    </div>
+
     <div class="form-grid" id="formGrid">
       <div class="campo">
         <label>Data</label>
@@ -548,8 +630,15 @@
         </select>
       </div>
       <div class="campo" id="campoDescWrap" style="grid-column: span 2;">
-        <label>Descrição</label>
-        <input type="text" id="campoDesc" placeholder="Ex: Troca de óleo no posto X">
+        <label id="labelDesc">Descrição</label>
+        <input type="text" id="campoDesc" placeholder="Ex: Troca de óleo no posto X" list="listaPecasSugeridas" autocomplete="off">
+        <datalist id="listaPecasSugeridas">
+          <option value="Jogo de vela">
+          <option value="Cabo de vela">
+          <option value="Correia dentada">
+          <option value="Esticador da correia dentada">
+          <option value="Pastilha de freio">
+        </datalist>
       </div>
       <div class="campo">
         <label>Valor (R$)</label>
@@ -573,6 +662,11 @@
     <span class="ficha-tag" id="contadorRegistros">0 registros</span>
   </div>
 
+  <div class="busca-wrap">
+    <input type="text" id="campoBusca" class="campo-busca" placeholder="🔍 Pesquisar pelo nome da peça ou descrição..." autocomplete="off">
+    <button type="button" id="btnLimparBusca" class="btn-limpar-busca" title="Limpar busca" style="display:none;">✕</button>
+  </div>
+
   <div class="filtros">
     <button class="filtro-btn ativo" data-filtro="todos">Todos</button>
     <button class="filtro-btn" data-filtro="gasto">Gastos</button>
@@ -585,7 +679,7 @@
 </main>
 
 <footer>
-  Zamany_car · acesse de qualquer dispositivo
+  ZAMANY_SITES · acesse de qualquer dispositivo
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -628,6 +722,7 @@
   var dados = { nomeCarro:'', kmAtual:'', registros:[] };
   var tipoAtual = 'gasto';
   var filtroAtual = 'todos';
+  var buscaAtual = '';
   var carregouPrimeiraVez = false;
 
   function salvarDados(){
@@ -656,6 +751,50 @@
   var elCampoKmWrap = document.getElementById('campoKmWrap');
   var elCampoLitros = document.getElementById('campoLitros');
   var elCampoLitrosWrap = document.getElementById('campoLitrosWrap');
+  var elPecasRecorrentesWrap = document.getElementById('pecasRecorrentesWrap');
+  var chipsPecas = document.querySelectorAll('.chip-peca');
+  var elCampoBusca = document.getElementById('campoBusca');
+  var elBtnLimparBusca = document.getElementById('btnLimparBusca');
+
+  elCampoBusca.addEventListener('input', function(){
+    buscaAtual = elCampoBusca.value.trim().toLowerCase();
+    elBtnLimparBusca.style.display = buscaAtual ? '' : 'none';
+    renderLista();
+  });
+
+  elBtnLimparBusca.addEventListener('click', function(){
+    elCampoBusca.value = '';
+    buscaAtual = '';
+    elBtnLimparBusca.style.display = 'none';
+    renderLista();
+    elCampoBusca.focus();
+  });
+
+  chipsPecas.forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var pecaNome = chip.getAttribute('data-peca');
+      var jaAtivo = chip.classList.contains('ativo');
+      chipsPecas.forEach(function(c){ c.classList.remove('ativo'); });
+      if(jaAtivo){
+        elCampoDesc.value = '';
+      } else {
+        chip.classList.add('ativo');
+        elCampoDesc.value = pecaNome;
+      }
+      elCampoDesc.focus();
+    });
+  });
+
+  elCampoDesc.addEventListener('input', function(){
+    var valorAtual = elCampoDesc.value;
+    chipsPecas.forEach(function(c){
+      if(c.getAttribute('data-peca') !== valorAtual){
+        c.classList.remove('ativo');
+      } else {
+        c.classList.add('ativo');
+      }
+    });
+  });
 
   elCampoData.value = new Date().toISOString().slice(0,10);
 
@@ -713,16 +852,22 @@
       elCampoLitrosWrap.style.display = '';
       elCampoDesc.placeholder = 'Ex: Posto Ipiranga, Av. Brasil';
       elCampoKmWrap.style.display = '';
+      elPecasRecorrentesWrap.style.display = 'none';
+      document.getElementById('labelDesc').textContent = 'Descrição';
     } else if(tipoAtual === 'peca'){
       elCampoCategoriaWrap.style.display = 'none';
       elCampoLitrosWrap.style.display = 'none';
-      elCampoDesc.placeholder = 'Ex: Pastilha de freio dianteira';
+      elCampoDesc.placeholder = 'Buscar ou digitar nome da peça';
       elCampoKmWrap.style.display = '';
+      elPecasRecorrentesWrap.style.display = '';
+      document.getElementById('labelDesc').textContent = 'Nome da peça';
     } else {
       elCampoCategoriaWrap.style.display = '';
       elCampoLitrosWrap.style.display = 'none';
       elCampoDesc.placeholder = 'Ex: Troca de óleo no posto X';
       elCampoKmWrap.style.display = '';
+      elPecasRecorrentesWrap.style.display = 'none';
+      document.getElementById('labelDesc').textContent = 'Descrição';
     }
   }
 
@@ -778,6 +923,7 @@
     elCampoDesc.value = '';
     elCampoKm.value = '';
     elCampoLitros.value = '';
+    chipsPecas.forEach(function(c){ c.classList.remove('ativo'); });
   }
 
   // ===== Excluir =====
@@ -821,10 +967,21 @@
       registros = registros.filter(function(r){ return r.tipo === filtroAtual; });
     }
 
+    if(buscaAtual){
+      registros = registros.filter(function(r){
+        var texto = ((r.desc || '') + ' ' + (r.categoria || '')).toLowerCase();
+        return texto.indexOf(buscaAtual) !== -1;
+      });
+    }
+
     elContador.textContent = dados.registros.length + (dados.registros.length === 1 ? ' registro' : ' registros');
 
     if(registros.length === 0){
-      elLista.innerHTML = '<div class="vazio"><span class="icone">🗒️</span>Nenhum registro ainda. Adicione o primeiro gasto, peça ou abastecimento acima.</div>';
+      if(buscaAtual){
+        elLista.innerHTML = '<div class="vazio"><span class="icone">🔍</span>Nenhum registro encontrado para "' + escapeHtml(buscaAtual) + '".</div>';
+      } else {
+        elLista.innerHTML = '<div class="vazio"><span class="icone">🗒️</span>Nenhum registro ainda. Adicione o primeiro gasto, peça ou abastecimento acima.</div>';
+      }
       return;
     }
 
