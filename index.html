@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diário de Bordo — Controle do Carro</title>
+<style>
+  :root{
+    --asfalto: #15171a;
+    --asfalto-2: #1d2024;
+    --painel: #22262b;
+    --metal: #2b3036;
+    --linha: #383e45;
+    --texto: #e8e6df;
+    --texto-fraco: #9aa0a8;
+    --laranja: #ff6a1a;
+    --laranja-fraco: rgba(255,106,26,.14);
+    --verde-oleo: #6fae6c;
+    --vermelho-alerta: #e8543c;
+    --amarelo-farol: #f0b429;
+    --mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --display: 'Oswald', 'Arial Narrow', sans-serif;
+    --corpo: 'Inter', -apple-system, system-ui, sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  body{
+    background: var(--asfalto);
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(255,106,26,.06), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0px, rgba(255,255,255,.012) 1px, transparent 1px, transparent 3px);
+    color: var(--texto);
+    font-family: var(--corpo);
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+
+  /* ===== HEADER / PAINEL ===== */
+  header{
+    background: linear-gradient(180deg, var(--asfalto-2), var(--asfalto));
+    border-bottom: 3px solid var(--laranja);
+    padding: 28px 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image: repeating-linear-gradient(135deg, rgba(255,106,26,.05) 0 2px, transparent 2px 14px);
+    pointer-events:none;
+  }
+  .header-inner{
+    max-width: 980px;
+    margin: 0 auto;
+    display:flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 14px;
+    position:relative;
+    z-index:1;
+  }
+  .placa{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    color: var(--laranja);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .placa::before{
+    content:"●";
+    color: var(--verde-oleo);
+    font-size: 9px;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+
+  h1{
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(28px, 5vw, 42px);
+    text-transform: uppercase;
+    letter-spacing: .01em;
+    line-height: 1;
+  }
+  h1 span{ color: var(--laranja); }
+
+  .car-id{
+    text-align:right;
+  }
+  .car-id label{
+    display:block;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color: var(--texto-fraco);
+    margin-bottom:4px;
+  }
+  .car-id input{
+    background:transparent;
+    border:none;
+    border-bottom: 1px dashed var(--linha);
+    color: var(--texto);
+    font-family: var(--mono);
+    font-size: 15px;
+    text-align:right;
+    padding: 2px 0;
+    width: 220px;
+  }
+  .car-id input:focus{ outline:none; border-bottom-color: var(--laranja); }
+
+  /* ===== KM ATUAL — PAINEL DIGITAL ===== */
+  .odometro-bar{
+    max-width:980px;
+    margin: 18px auto 0;
+    background: var(--painel);
+    border: 1px solid var(--linha);
+    border-radius: 6px;
+    padding: 14px 18px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .odometro-bar label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color: var(--texto-fraco);
+    white-space:nowrap;
+  }
+  .odometro-bar input{
+    background: var(--asfalto);
+    border: 1px solid var(--linha);
+    color: var(--verde-oleo);
+    font-family: var(--mono);
+    font-size: 22px;
+    letter-spacing: .08em;
+    padding: 6px 12px;
+    border-radius: 4px;
+    width: 160px;
+  }
+  .odometro-bar input:focus{ outline:none; border-color:var(--verde-oleo); }
+  .odometro-bar .unidade{ color:var(--texto-fraco); font-family:var(--mono); font-size:13px; }
+
+  /* ===== MAIN ===== */
+  main{
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 20px 0;
+  }
+
+  /* ===== DASHBOARD CARDS ===== */
+  .dash{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 760px){ .dash{ grid-template-columns: repeat(2, 1fr); } }
+
+  .gauge{
+    background: var(--painel);
+    border: 1px solid var(--linha);
+    border-radius: 8px;
+    padding: 16px 16px 14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .gauge::after{
+    content:"";
+    position:absolute;
+    top:0; left:0; width:3px; height:100%;
+    background: var(--accent, var(--laranja));
+  }
+  .gauge .eyebrow{
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color: var(--texto-fraco);
+    margin-bottom: 8px;
+  }
+  .gauge .valor{
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight:600;
+    line-height:1;
+  }
+  .gauge .valor small{
+    font-family: var(--corpo);
+    font-size: 13px;
+    font-weight:400;
+    color: var(--texto-fraco);
+    margin-left: 4px;
+  }
+  .gauge.g-gasto{ --accent: var(--laranja); }
+  .gauge.g-pecas{ --accent: var(--amarelo-farol); }
+  .gauge.g-consumo{ --accent: var(--verde-oleo); }
+  .gauge.g-km{ --accent: #7aa8c9; }
+
+  /* ===== SECTION HEADERS ===== */
+  .secao-titulo{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:14px;
+    padding-bottom:8px;
+    border-bottom: 1px solid var(--linha);
+  }
+  .secao-titulo h2{
+    font-family: var(--display);
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight:600;
+  }
+  .secao-titulo .ficha-tag{
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--texto-fraco);
+    background: var(--metal);
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+  }
+
+  /* ===== FORM ===== */
+  .form-card{
+    background: var(--painel);
+    border: 1px solid var(--linha);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 36px;
+  }
+  .form-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .campo label{
+    display:block;
+    font-size: 10px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color: var(--texto-fraco);
+    margin-bottom: 6px;
+  }
+  .campo input, .campo select{
+    width:100%;
+    background: var(--asfalto);
+    border: 1px solid var(--linha);
+    color: var(--texto);
+    font-family: var(--corpo);
+    font-size: 14px;
+    padding: 9px 10px;
+    border-radius: 4px;
+  }
+  .campo input:focus, .campo select:focus{
+    outline:none;
+    border-color: var(--laranja);
+  }
+  .campo input[type="number"]{ font-family: var(--mono); }
+
+  .tipo-toggle{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .tipo-btn{
+    flex:1;
+    background: var(--asfalto);
+    border: 1px solid var(--linha);
+    color: var(--texto-fraco);
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  .tipo-btn.ativo{
+    background: var(--laranja-fraco);
+    border-color: var(--laranja);
+    color: var(--laranja);
+  }
+  .tipo-btn:hover{ border-color: var(--texto-fraco); }
+  .tipo-btn.ativo:hover{ border-color: var(--laranja); }
+
+  .btn-add{
+    background: var(--laranja);
+    color: #1a1a1a;
+    border:none;
+    padding: 11px 22px;
+    border-radius: 5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: filter .15s ease, transform .1s ease;
+  }
+  .btn-add:hover{ filter: brightness(1.1); }
+  .btn-add:active{ transform: scale(.98); }
+
+  /* ===== LISTA / FICHAS ===== */
+  .registro{
+    display:grid;
+    grid-template-columns: 86px 1fr auto auto;
+    align-items:center;
+    gap: 14px;
+    background: var(--painel);
+    border: 1px solid var(--linha);
+    border-left: 3px solid var(--linha);
+    border-radius: 6px;
+    padding: 13px 16px;
+    margin-bottom: 8px;
+    transition: border-color .15s ease;
+  }
+  .registro:hover{ border-left-color: var(--laranja); }
+  .registro.tipo-peca{ border-left-color: var(--amarelo-farol); }
+  .registro.tipo-gasto{ border-left-color: var(--laranja); }
+
+  @media (max-width: 640px){
+    .registro{ grid-template-columns: 1fr auto; grid-template-areas: "data valor" "desc desc" "km del"; row-gap:6px; }
+  }
+
+  .reg-data{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--texto-fraco);
+    line-height:1.3;
+  }
+  .reg-data .ano{ opacity:.6; }
+
+  .reg-desc .titulo{
+    font-weight:600;
+    font-size: 14.5px;
+    margin-bottom: 2px;
+  }
+  .reg-desc .sub{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--texto-fraco);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .reg-desc .sub.peca::before{ content:"🔧 PEÇA · "; color: var(--amarelo-farol); }
+  .reg-desc .sub.gasto::before{ content:"⛽ GASTO · "; color: var(--laranja); }
+
+  .reg-valor{
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight:600;
+    white-space:nowrap;
+    text-align:right;
+  }
+
+  .reg-del{
+    background:transparent;
+    border: 1px solid var(--linha);
+    color: var(--texto-fraco);
+    width: 30px; height:30px;
+    border-radius: 4px;
+    cursor:pointer;
+    font-size: 14px;
+    line-height:1;
+    transition: all .15s ease;
+  }
+  .reg-del:hover{ border-color: var(--vermelho-alerta); color: var(--vermelho-alerta); }
+
+  .vazio{
+    text-align:center;
+    padding: 40px 20px;
+    color: var(--texto-fraco);
+    font-size: 14px;
+    border: 1px dashed var(--linha);
+    border-radius: 8px;
+  }
+  .vazio .icone{ font-size:28px; display:block; margin-bottom:10px; opacity:.5;}
+
+  /* ===== FILTROS ===== */
+  .filtros{
+    display:flex;
+    gap:8px;
+    margin-bottom: 16px;
+    flex-wrap:wrap;
+  }
+  .filtro-btn{
+    background: var(--metal);
+    border: 1px solid var(--linha);
+    color: var(--texto-fraco);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor:pointer;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .filtro-btn.ativo{
+    background: var(--laranja-fraco);
+    border-color: var(--laranja);
+    color: var(--laranja);
+  }
+
+  footer{
+    max-width:980px;
+    margin: 30px auto 0;
+    padding: 16px 20px;
+    text-align:center;
+    color: var(--texto-fraco);
+    font-size: 11px;
+    font-family: var(--mono);
+    border-top: 1px solid var(--linha);
+  }
+
+  .toast{
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--metal);
+    border: 1px solid var(--verde-oleo);
+    color: var(--texto);
+    padding: 12px 22px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity:0;
+    pointer-events:none;
+    transition: all .25s ease;
+    z-index: 100;
+  }
+  .toast.show{
+    opacity:1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="placa">Diário de bordo</div>
+      <h1>Controle do <span>Carro</span></h1>
+    </div>
+    <div class="car-id">
+      <label>Identificação do veículo</label>
+      <input type="text" id="nomeCarro" placeholder="Ex: Onix 2020 — placa ABC1D23">
+    </div>
+  </div>
+
+  <div class="odometro-bar">
+    <label>Km atual no painel</label>
+    <input type="number" id="kmAtual" placeholder="0" inputmode="numeric">
+    <span class="unidade">km</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="dash">
+    <div class="gauge g-gasto">
+      <div class="eyebrow">Total em gastos</div>
+      <div class="valor" id="totalGastos">R$ 0</div>
+    </div>
+    <div class="gauge g-pecas">
+      <div class="eyebrow">Total em peças</div>
+      <div class="valor" id="totalPecas">R$ 0</div>
+    </div>
+    <div class="gauge g-km">
+      <div class="eyebrow">Km rodado (total)</div>
+      <div class="valor" id="totalKm">0<small>km</small></div>
+    </div>
+    <div class="gauge g-consumo">
+      <div class="eyebrow">Consumo médio</div>
+      <div class="valor" id="consumoMedio">—<small>km/l</small></div>
+    </div>
+  </div>
+
+  <div class="secao-titulo">
+    <h2>Novo registro</h2>
+    <span class="ficha-tag">Ficha de lançamento</span>
+  </div>
+
+  <div class="form-card">
+    <div class="tipo-toggle">
+      <button class="tipo-btn ativo" data-tipo="gasto" id="btnTipoGasto">⛽ Gasto geral</button>
+      <button class="tipo-btn" data-tipo="peca" id="btnTipoPeca">🔧 Peça</button>
+      <button class="tipo-btn" data-tipo="abastecimento" id="btnTipoAbastecimento">⛽ Abastecimento</button>
+    </div>
+
+    <div class="form-grid" id="formGrid">
+      <div class="campo">
+        <label>Data</label>
+        <input type="date" id="campoData">
+      </div>
+      <div class="campo" id="campoCategoriaWrap">
+        <label>Categoria</label>
+        <select id="campoCategoria">
+          <option>Combustível</option>
+          <option>Manutenção</option>
+          <option>Seguro</option>
+          <option>IPVA / Licenciamento</option>
+          <option>Lavagem</option>
+          <option>Multa</option>
+          <option>Estacionamento</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div class="campo" id="campoDescWrap" style="grid-column: span 2;">
+        <label>Descrição</label>
+        <input type="text" id="campoDesc" placeholder="Ex: Troca de óleo no posto X">
+      </div>
+      <div class="campo">
+        <label>Valor (R$)</label>
+        <input type="number" id="campoValor" placeholder="0,00" step="0.01">
+      </div>
+      <div class="campo" id="campoKmWrap">
+        <label>Km no momento</label>
+        <input type="number" id="campoKm" placeholder="Opcional">
+      </div>
+      <div class="campo" id="campoLitrosWrap" style="display:none;">
+        <label>Litros abastecidos</label>
+        <input type="number" id="campoLitros" placeholder="0,00" step="0.01">
+      </div>
+    </div>
+
+    <button class="btn-add" id="btnSalvar">+ Adicionar registro</button>
+  </div>
+
+  <div class="secao-titulo">
+    <h2>Histórico</h2>
+    <span class="ficha-tag" id="contadorRegistros">0 registros</span>
+  </div>
+
+  <div class="filtros">
+    <button class="filtro-btn ativo" data-filtro="todos">Todos</button>
+    <button class="filtro-btn" data-filtro="gasto">Gastos</button>
+    <button class="filtro-btn" data-filtro="peca">Peças</button>
+    <button class="filtro-btn" data-filtro="abastecimento">Abastecimentos</button>
+  </div>
+
+  <div id="listaRegistros"></div>
+
+</main>
+
+<footer>
+  Dados salvos automaticamente neste navegador · nenhum dado sai do seu dispositivo
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  // ===== Estado e persistência =====
+  var STORAGE_KEY = 'diario_bordo_dados_v1';
+
+  function carregarDados(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return { nomeCarro:'', kmAtual:'', registros:[] };
+      var parsed = JSON.parse(raw);
+      if(!parsed.registros) parsed.registros = [];
+      return parsed;
+    }catch(e){
+      return { nomeCarro:'', kmAtual:'', registros:[] };
+    }
+  }
+
+  function salvarDados(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
+      return true;
+    }catch(e){
+      mostrarToast('Não foi possível salvar — armazenamento indisponível');
+      return false;
+    }
+  }
+
+  var dados = carregarDados();
+  var tipoAtual = 'gasto';
+  var filtroAtual = 'todos';
+
+  // ===== Elementos =====
+  var elNomeCarro = document.getElementById('nomeCarro');
+  var elKmAtual = document.getElementById('kmAtual');
+  var elLista = document.getElementById('listaRegistros');
+  var elContador = document.getElementById('contadorRegistros');
+  var elToast = document.getElementById('toast');
+
+  var elCampoData = document.getElementById('campoData');
+  var elCampoCategoria = document.getElementById('campoCategoria');
+  var elCampoCategoriaWrap = document.getElementById('campoCategoriaWrap');
+  var elCampoDesc = document.getElementById('campoDesc');
+  var elCampoValor = document.getElementById('campoValor');
+  var elCampoKm = document.getElementById('campoKm');
+  var elCampoKmWrap = document.getElementById('campoKmWrap');
+  var elCampoLitros = document.getElementById('campoLitros');
+  var elCampoLitrosWrap = document.getElementById('campoLitrosWrap');
+
+  // ===== Init valores salvos =====
+  elNomeCarro.value = dados.nomeCarro || '';
+  elKmAtual.value = dados.kmAtual || '';
+  elCampoData.value = new Date().toISOString().slice(0,10);
+
+  elNomeCarro.addEventListener('input', function(){
+    dados.nomeCarro = elNomeCarro.value;
+    salvarDados();
+  });
+  elKmAtual.addEventListener('input', function(){
+    dados.kmAtual = elKmAtual.value;
+    salvarDados();
+    renderDashboard();
+  });
+
+  // ===== Toggle de tipo =====
+  var botoesTipo = document.querySelectorAll('.tipo-btn');
+  botoesTipo.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      botoesTipo.forEach(function(b){ b.classList.remove('ativo'); });
+      btn.classList.add('ativo');
+      tipoAtual = btn.getAttribute('data-tipo');
+      atualizarFormularioPorTipo();
+    });
+  });
+
+  function atualizarFormularioPorTipo(){
+    if(tipoAtual === 'abastecimento'){
+      elCampoCategoriaWrap.style.display = 'none';
+      elCampoLitrosWrap.style.display = '';
+      elCampoDesc.placeholder = 'Ex: Posto Ipiranga, Av. Brasil';
+      elCampoKmWrap.style.display = '';
+    } else if(tipoAtual === 'peca'){
+      elCampoCategoriaWrap.style.display = 'none';
+      elCampoLitrosWrap.style.display = 'none';
+      elCampoDesc.placeholder = 'Ex: Pastilha de freio dianteira';
+      elCampoKmWrap.style.display = '';
+    } else {
+      elCampoCategoriaWrap.style.display = '';
+      elCampoLitrosWrap.style.display = 'none';
+      elCampoDesc.placeholder = 'Ex: Troca de óleo no posto X';
+      elCampoKmWrap.style.display = '';
+    }
+  }
+
+  // ===== Filtros =====
+  var botoesFiltro = document.querySelectorAll('.filtro-btn');
+  botoesFiltro.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      botoesFiltro.forEach(function(b){ b.classList.remove('ativo'); });
+      btn.classList.add('ativo');
+      filtroAtual = btn.getAttribute('data-filtro');
+      renderLista();
+    });
+  });
+
+  // ===== Salvar registro =====
+  document.getElementById('btnSalvar').addEventListener('click', function(){
+    var data = elCampoData.value;
+    var valor = parseFloat(elCampoValor.value);
+    var desc = elCampoDesc.value.trim();
+    var km = elCampoKm.value ? parseFloat(elCampoKm.value) : null;
+    var litros = elCampoLitros.value ? parseFloat(elCampoLitros.value) : null;
+    var categoria = tipoAtual === 'gasto' ? elCampoCategoria.value : null;
+
+    if(!data){ mostrarToast('Preencha a data'); return; }
+    if(isNaN(valor) || valor <= 0){ mostrarToast('Informe um valor válido'); return; }
+    if(!desc){ mostrarToast('Descreva o registro'); return; }
+    if(tipoAtual === 'abastecimento' && (isNaN(litros) || litros <= 0)){
+      mostrarToast('Informe os litros abastecidos'); return;
+    }
+
+    var registro = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      tipo: tipoAtual,
+      data: data,
+      categoria: categoria,
+      desc: desc,
+      valor: valor,
+      km: km,
+      litros: litros
+    };
+
+    dados.registros.push(registro);
+    if(salvarDados()){
+      mostrarToast('Registro adicionado');
+      limparFormulario();
+      renderLista();
+      renderDashboard();
+    }
+  });
+
+  function limparFormulario(){
+    elCampoValor.value = '';
+    elCampoDesc.value = '';
+    elCampoKm.value = '';
+    elCampoLitros.value = '';
+  }
+
+  // ===== Excluir =====
+  function excluirRegistro(id){
+    dados.registros = dados.registros.filter(function(r){ return r.id !== id; });
+    salvarDados();
+    renderLista();
+    renderDashboard();
+    mostrarToast('Registro removido');
+  }
+
+  // ===== Formatação =====
+  function formatarMoeda(v){
+    return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function formatarData(iso){
+    var partes = iso.split('-');
+    return { diames: partes[2] + '/' + partes[1], ano: partes[0] };
+  }
+  function labelTipo(tipo){
+    if(tipo === 'peca') return 'peca';
+    return 'gasto';
+  }
+  function tituloRegistro(r){
+    if(r.tipo === 'abastecimento') return 'Abastecimento — ' + r.litros + ' L';
+    return r.desc;
+  }
+  function subRegistro(r){
+    if(r.tipo === 'abastecimento') return r.desc || 'Posto';
+    if(r.tipo === 'peca') return 'Peça';
+    return r.categoria || 'Gasto';
+  }
+
+  // ===== Render lista =====
+  function renderLista(){
+    var registros = dados.registros.slice().sort(function(a,b){
+      return new Date(b.data) - new Date(a.data);
+    });
+
+    if(filtroAtual !== 'todos'){
+      registros = registros.filter(function(r){ return r.tipo === filtroAtual; });
+    }
+
+    elContador.textContent = dados.registros.length + (dados.registros.length === 1 ? ' registro' : ' registros');
+
+    if(registros.length === 0){
+      elLista.innerHTML = '<div class="vazio"><span class="icone">🗒️</span>Nenhum registro ainda. Adicione o primeiro gasto, peça ou abastecimento acima.</div>';
+      return;
+    }
+
+    elLista.innerHTML = registros.map(function(r){
+      var d = formatarData(r.data);
+      var classeTipo = r.tipo === 'peca' ? 'tipo-peca' : 'tipo-gasto';
+      var subClasse = r.tipo === 'peca' ? 'peca' : 'gasto';
+      var kmInfo = r.km ? ' · ' + r.km.toLocaleString('pt-BR') + ' km' : '';
+      return '' +
+        '<div class="registro ' + classeTipo + '">' +
+          '<div class="reg-data">' + d.diames + '<br><span class="ano">' + d.ano + '</span></div>' +
+          '<div class="reg-desc">' +
+            '<div class="titulo">' + escapeHtml(tituloRegistro(r)) + '</div>' +
+            '<div class="sub ' + subClasse + '">' + escapeHtml(subRegistro(r)) + kmInfo + '</div>' +
+          '</div>' +
+          '<div class="reg-valor">' + formatarMoeda(r.valor) + '</div>' +
+          '<button class="reg-del" data-id="' + r.id + '" title="Remover">✕</button>' +
+        '</div>';
+    }).join('');
+
+    elLista.querySelectorAll('.reg-del').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        excluirRegistro(btn.getAttribute('data-id'));
+      });
+    });
+  }
+
+  function escapeHtml(str){
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ===== Render dashboard =====
+  function renderDashboard(){
+    var totalGastos = 0, totalPecas = 0;
+    var abastecimentos = [];
+
+    dados.registros.forEach(function(r){
+      if(r.tipo === 'peca') totalPecas += r.valor;
+      else totalGastos += r.valor; // gasto geral + abastecimento contam como gasto
+
+      if(r.tipo === 'abastecimento' && r.km){
+        abastecimentos.push(r);
+      }
+    });
+
+    document.getElementById('totalGastos').textContent = formatarMoeda(totalGastos);
+    document.getElementById('totalPecas').textContent = formatarMoeda(totalPecas);
+
+    // Km total: km atual do painel - menor km registrado (estimativa de km rodado desde o início do controle)
+    var todosKm = dados.registros.filter(function(r){ return r.km; }).map(function(r){ return r.km; });
+    var kmAtualNum = parseFloat(dados.kmAtual);
+    var kmTotalEl = document.getElementById('totalKm');
+
+    if(todosKm.length > 0 && !isNaN(kmAtualNum)){
+      var menorKm = Math.min.apply(null, todosKm);
+      var kmRodado = kmAtualNum - menorKm;
+      kmTotalEl.innerHTML = (kmRodado > 0 ? kmRodado.toLocaleString('pt-BR') : '0') + '<small>km</small>';
+    } else if(!isNaN(kmAtualNum)){
+      kmTotalEl.innerHTML = kmAtualNum.toLocaleString('pt-BR') + '<small>km (atual)</small>';
+    } else {
+      kmTotalEl.innerHTML = '—<small>km</small>';
+    }
+
+    // Consumo médio: precisa de pelo menos 2 abastecimentos com km registrado
+    var elConsumo = document.getElementById('consumoMedio');
+    abastecimentos.sort(function(a,b){ return (a.km||0) - (b.km||0); });
+
+    if(abastecimentos.length >= 2){
+      var totalKmEntreAbastecimentos = abastecimentos[abastecimentos.length-1].km - abastecimentos[0].km;
+      var totalLitros = 0;
+      for(var i=1; i<abastecimentos.length; i++){
+        totalLitros += abastecimentos[i].litros;
+      }
+      if(totalLitros > 0 && totalKmEntreAbastecimentos > 0){
+        var media = totalKmEntreAbastecimentos / totalLitros;
+        elConsumo.innerHTML = media.toFixed(1) + '<small>km/l</small>';
+      } else {
+        elConsumo.innerHTML = '—<small>km/l</small>';
+      }
+    } else {
+      elConsumo.innerHTML = '—<small>km/l</small>';
+    }
+  }
+
+  // ===== Toast =====
+  var toastTimeout;
+  function mostrarToast(msg){
+    elToast.textContent = msg;
+    elToast.classList.add('show');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function(){
+      elToast.classList.remove('show');
+    }, 2200);
+  }
+
+  // ===== Init =====
+  atualizarFormularioPorTipo();
+  renderLista();
+  renderDashboard();
+})();
+</script>
+
+</body>
+</html>
